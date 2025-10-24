@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Jukebox</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="apple-touch-icon" href="resources/jukebox-hero.png">
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.2.4/pixi.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.2/echarts.min.js"></script>
+    
+    <style>
+        :root {
+            --neon-blue: #00d4ff;
+            --neon-pink: #ff0080;
+            --neon-purple: #8b5cf6;
+            --bg-dark: #0a0a0a;
+            --bg-card: #1a1a1a;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        .orbitron {
+            font-family: 'Orbitron', monospace;
+        }
+        
+        .jetbrains {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .neon-glow {
+            box-shadow: 0 0 20px var(--neon-blue), 0 0 40px var(--neon-blue), 0 0 60px var(--neon-blue);
+        }
+        
+        .neon-text {
+            text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue), 0 0 30px var(--neon-blue);
+        }
+        
+        .vote-btn {
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple));
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .vote-btn:hover {
+            border-color: var(--neon-pink);
+            transform: scale(1.05);
+        }
+        
+        .song-card {
+            background: var(--bg-card);
+            border: 1px solid #333;
+            transition: all 0.3s ease;
+        }
+        
+        .song-card:hover {
+            border-color: var(--neon-blue);
+            transform: translateY(-2px);
+        }
+        
+        .queue-item {
+            background: linear-gradient(90deg, var(--bg-card), transparent);
+            border-left: 4px solid var(--neon-blue);
+        }
+        
+        .now-playing {
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink));
+            height: 4px;
+            border-radius: 2px;
+        }
+        
+        #p5-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+        
+        .floating-notes {
+            position: absolute;
+            font-size: 20px;
+            color: var(--neon-blue);
+            animation: float 3s infinite ease-in-out;
+            pointer-events: none;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.7; }
+            50% { transform: translateY(-20px) rotate(10deg); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- P5.js Background Canvas -->
+    <div id="p5-container"></div>
+    
+    <!-- Header -->
+    <header class="relative z-10 p-4 border-b border-gray-800">
+        <div class="flex items-center justify-between max-w-6xl mx-auto">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                    <span class="text-white font-bold orbitron">♪</span>
+                </div>
+                <h1 class="text-2xl font-bold orbitron neon-text">Neon Jukebox</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm text-gray-400">
+                    <span class="jetbrains">Connected: <span id="userCount">12</span></span>
+                </div>
+                <button onclick="showQueue()" class="px-4 py-2 bg-gray-800 rounded-lg text-sm hover:bg-gray-700 transition-colors">
+                    Queue
+                </button>
+                <button onclick="showAdmin()" class="px-4 py-2 bg-gray-800 rounded-lg text-sm hover:bg-gray-700 transition-colors">
+                    Admin
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Now Playing Section -->
+    <section class="relative z-10 p-6">
+        <div class="max-w-6xl mx-auto">
+            <div class="now-playing rounded-2xl p-6 mb-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-16 h-16 bg-black rounded-lg flex items-center justify-center overflow-hidden">
+                            <img id="currentAlbumArt" src="https://kimi-web-img.moonshot.cn/img/m.media-amazon.com/80c6fdf75bfb1ffd77296784d527ef260ea9bb4e.jpg" alt="Album Art" class="w-full h-full object-cover">
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold" id="currentSong">Electric Dreams</h2>
+                            <p class="text-gray-200" id="currentArtist">Synthwave Collective</p>
+                            <div class="flex items-center space-x-2 mt-2">
+                                <span class="jetbrains text-xs text-gray-300">3:24 / 4:12</span>
+                                <div class="w-32 bg-gray-700 rounded-full h-1">
+                                    <div class="progress-bar w-3/4 rounded-full"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="previousSong()" class="w-12 h-12 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-50 transition-all">
+                            <span class="text-white">⏮</span>
+                        </button>
+                        <button onclick="togglePlay()" id="playBtn" class="w-16 h-16 bg-white rounded-full flex items-center justify-center hover:scale-105 transition-transform">
+                            <span id="playIcon" class="text-black text-xl ml-1">▶</span>
+                        </button>
+                        <button onclick="nextSong()" class="w-12 h-12 bg-black bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-50 transition-all">
+                            <span class="text-white">⏭</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Up Next Queue -->
+    <section class="relative z-10 p-6">
+        <div class="max-w-6xl mx-auto">
+            <h3 class="text-xl font-bold orbitron mb-4 neon-text">Up Next</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="queueContainer">
+                <!-- Queue items will be populated by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Song Library -->
+    <section class="relative z-10 p-6">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold orbitron neon-text">Music Library</h3>
+                <div class="flex items-center space-x-3">
+                    <input type="text" id="searchInput" placeholder="Search songs..." 
+                           class="px-4 py-2 bg-gray-800 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="genreFilter" class="px-4 py-2 bg-gray-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">All Genres</option>
+                        <option value="electronic">Electronic</option>
+                        <option value="rock">Rock</option>
+                        <option value="pop">Pop</option>
+                        <option value="jazz">Jazz</option>
+                        <option value="classical">Classical</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4" id="songLibrary">
+                <!-- Song cards will be populated by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Vote Notification -->
+    <div id="voteNotification" class="fixed top-20 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50">
+        <div class="flex items-center space-x-2">
+            <span>🎵</span>
+            <span>Vote recorded!</span>
+        </div>
+    </div>
+
+    <!-- Floating Music Notes -->
+    <div id="floatingNotes" class="fixed inset-0 pointer-events-none z-0"></div>
+
+    <script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "name": "Neon Jukebox - Collaborative Music Voting",
+  "short_name": "Neon Jukebox",
+  "description": "A collaborative jukebox where everyone can vote for the next song to play",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#00d4ff",
+  "orientation": "portrait-primary",
+  "categories": ["music", "entertainment", "social"],
+  "lang": "en",
+  "icons": [
+    {
+      "src": "resources/jukebox-hero.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "resources/jukebox-hero.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "resources/jukebox-hero.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "features": [
+    "cross-platform",
+    "offline-capable",
+    "touch-optimized"
+  ]
+}

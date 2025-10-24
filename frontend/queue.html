@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue - Neon Jukebox</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a0a">
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.2/echarts.min.js"></script>
+    
+    <style>
+        :root {
+            --neon-blue: #00d4ff;
+            --neon-pink: #ff0080;
+            --neon-purple: #8b5cf6;
+            --bg-dark: #0a0a0a;
+            --bg-card: #1a1a1a;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: white;
+        }
+        
+        .orbitron {
+            font-family: 'Orbitron', monospace;
+        }
+        
+        .jetbrains {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .neon-text {
+            text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue), 0 0 30px var(--neon-blue);
+        }
+        
+        .queue-item {
+            background: var(--bg-card);
+            border: 1px solid #333;
+            transition: all 0.3s ease;
+        }
+        
+        .queue-item:hover {
+            border-color: var(--neon-blue);
+            transform: translateX(4px);
+        }
+        
+        .vote-bar {
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink));
+            height: 6px;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        
+        .position-badge {
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="p-4 border-b border-gray-800">
+        <div class="flex items-center justify-between max-w-6xl mx-auto">
+            <div class="flex items-center space-x-3">
+                <button onclick="goBack()" class="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors">
+                    <span>←</span>
+                </button>
+                <h1 class="text-2xl font-bold orbitron neon-text">Queue</h1>
+            </div>
+            <div class="text-sm text-gray-400">
+                <span class="jetbrains">Total Songs: <span id="totalSongs">15</span></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Queue Stats -->
+    <section class="p-6">
+        <div class="max-w-6xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-gray-900 rounded-xl p-4 border border-gray-700">
+                    <h3 class="text-lg font-bold orbitron mb-2">Total Votes</h3>
+                    <p class="text-3xl font-bold text-blue-400" id="totalVotes">247</p>
+                </div>
+                <div class="bg-gray-900 rounded-xl p-4 border border-gray-700">
+                    <h3 class="text-lg font-bold orbitron mb-2">Next Song</h3>
+                    <p class="text-lg font-semibold" id="nextSongTitle">Retro Wave</p>
+                    <p class="text-sm text-gray-400" id="nextSongArtist">80s Revival</p>
+                </div>
+                <div class="bg-gray-900 rounded-xl p-4 border border-gray-700">
+                    <h3 class="text-lg font-bold orbitron mb-2">Queue Length</h3>
+                    <p class="text-3xl font-bold text-purple-400" id="queueLength">14</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Vote Statistics Chart -->
+    <section class="p-6">
+        <div class="max-w-6xl mx-auto">
+            <h3 class="text-xl font-bold orbitron mb-4 neon-text">Vote Distribution</h3>
+            <div class="bg-gray-900 rounded-xl p-4 border border-gray-700">
+                <div id="voteChart" style="height: 300px;"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Full Queue -->
+    <section class="p-6">
+        <div class="max-w-6xl mx-auto">
+            <h3 class="text-xl font-bold orbitron mb-4 neon-text">Full Queue</h3>
+            <div class="space-y-3" id="fullQueue">
+                <!-- Queue items will be populated by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Recent Activity -->
+    <section class="p-6">
+        <div class="max-w-6xl mx-auto">
+            <h3 class="text-xl font-bold orbitron mb-4 neon-text">Recent Votes</h3>
+            <div class="bg-gray-900 rounded-xl p-4 border border-gray-700">
+                <div class="space-y-3" id="recentActivity">
+                    <!-- Recent activity will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Queue page specific functionality
+        class QueueManager {
+            constructor() {
+                this.songs = [
+                    { id: 1, title: "Electric Dreams", artist: "Synthwave Collective", votes: 15, albumArt: "https://kimi-web-img.moonshot.cn/img/m.media-amazon.com/80c6fdf75bfb1ffd77296784d527ef260ea9bb4e.jpg" },
+                    { id: 2, title: "Neon Nights", artist: "Cyberpunk 2077", votes: 23, albumArt: "https://kimi-web-img.moonshot.cn/img/m.media-amazon.com/053db6b7646e3f9674bd84a94471dc58a97b97c6.jpg" },
+                    { id: 3, title: "Starlight Echo", artist: "Cosmic Voyager", votes: 8, albumArt: "https://kimi-web-img.moonshot.cn/img/i.etsystatic.com/ee0713eab6209d2daaa75c86dbb4f23e0b026b50.jpg" },
+                    { id: 4, title: "Retro Wave", artist: "80s Revival", votes: 31, albumArt: "https://kimi-web-img.moonshot.cn/img/media.istockphoto.com/255490afb8770cedbaa4bd30a9bc151420333847.jpg" },
+                    { id: 5, title: "Digital Love", artist: "Daft Punk Tribute", votes: 18, albumArt: "https://kimi-web-img.moonshot.cn/img/thumbs.dreamstime.com/38d1f07a619ecea88ea97d6d71deee49dca39491.jpg" },
+                    { id: 6, title: "Rock the Casbah", artist: "The Clash", votes: 12, albumArt: "https://kimi-web-img.moonshot.cn/img/c.pxhere.com/adae85e160292d15daf5e545919a6a397dd9e25c.jpg!d" },
+                    { id: 7, title: "Bohemian Rhapsody", artist: "Queen", votes: 27, albumArt: "https://kimi-web-img.moonshot.cn/img/c.pxhere.com/b4bc5ed58d9403af15232ef3a46d79c501f14a49.jpg!d" },
+                    { id: 8, title: "Hotel California", artist: "Eagles", votes: 19, albumArt: "https://kimi-web-img.moonshot.cn/img/c.pxhere.com/a88f65e6d5961003adf84582ed00ee5e57071543.jpg!d" },
+                    { id: 9, title: "Thriller", artist: "Michael Jackson", votes: 35, albumArt: "https://kimi-web-img.moonshot.cn/img/img.freepik.com/a9efbb16327123014e5724d284bd00350ea9fbb9.jpg" },
+                    { id: 10, title: "Billie Jean", artist: "Michael Jackson", votes: 22, albumArt: "https://kimi-web-img.moonshot.cn/img/rockymountevents.com/1b39f5d10eccef6ed79e16882ab45915c8eff907.jpg" },
+                    { id: 11, title: "Like a Prayer", artist: "Madonna", votes: 16, albumArt: "https://kimi-web-img.moonshot.cn/img/s3-us-west-2.amazonaws.com/8dab5a1b73aa000f30c314f05eeeff4402d382e4.jpg" },
+                    { id: 12, title: "Take Five", artist: "Dave Brubeck", votes: 7, albumArt: "https://kimi-web-img.moonshot.cn/img/c.pxhere.com/c51d07e1fee44d9b19de06a3d08daa1e25047487.jpg!d" },
+                    { id: 13, title: "So What", artist: "Miles Davis", votes: 9, albumArt: "https://kimi-web-img.moonshot.cn/img/images.pexels.com/61f2fe6554aea07923f0aff730ee966cfd5d25ed.jpeg" },
+                    { id: 14, title: "Moonlight Sonata", artist: "Beethoven", votes: 4, albumArt: "https://kimi-web-img.moonshot.cn/img/c.pxhere.com/df92bba03091626682c983bef226930e3fd2c111.jpg!d" },
+                    { id: 15, title: "Four Seasons", artist: "Vivaldi", votes: 6, albumArt: "https://kimi-web-img.moonshot.cn/img/media.istockphoto.com/4ebc5a9102361ae6d619a3fd3abefe201e3dd143.jpg" }
+                ];
+                
+                this.init();
+            }
+            
+            init() {
+                this.renderFullQueue();
+                this.renderVoteChart();
+                this.renderRecentActivity();
+                this.updateStats();
+            }
+            
+            renderFullQueue() {
+                const container = document.getElementById('fullQueue');
+                container.innerHTML = '';
+                
+                const sortedSongs = [...this.songs].sort((a, b) => b.votes - a.votes);
+                const maxVotes = sortedSongs[0].votes;
+                
+                sortedSongs.forEach((song, index) => {
+                    const queueItem = document.createElement('div');
+                    queueItem.className = 'queue-item rounded-xl p-4';
+                    
+                    const votePercentage = (song.votes / maxVotes) * 100;
+                    
+                    queueItem.innerHTML = `
+                        <div class="flex items-center space-x-4">
+                            <div class="position-badge">
+                                ${index + 1}
+                            </div>
+                            <div class="w-16 h-16 bg-gray-800 rounded-lg overflow-hidden flex-shrink-0">
+                                <img src="${song.albumArt}" alt="${song.title}" class="w-full h-full object-cover">
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-lg mb-1 truncate">${song.title}</h4>
+                                <p class="text-sm text-gray-400 truncate">${song.artist}</p>
+                                <div class="mt-2">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs text-gray-500">Votes</span>
+                                        <span class="text-sm font-bold text-blue-400">${song.votes}</span>
+                                    </div>
+                                    <div class="w-full bg-gray-700 rounded-full h-2">
+                                        <div class="vote-bar rounded-full" style="width: ${votePercentage}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(queueItem);
+                });
+            }
+            
+            renderVoteChart() {
+                const chartDom = document.getElementById('voteChart');
+                const myChart = echarts.init(chartDom);
+                
+                const sortedSongs = [...this.songs].sort((a, b) => b.votes - a.votes).slice(0, 8);
+                
+                const option = {
+                    backgroundColor: 'transparent',
+                    textStyle: {
+                        color: '#ffffff'
+                    },
+                    tooltip: {
+                        trigger: 'axis',
+                        axisPointer: {
+                            type: 'shadow'
+                        }
+                    },
+                    grid: {
+                        left: '3%',
+                        right: '4%',
+                        bottom: '3%',
+                        containLabel: true
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: sortedSongs.map(song => song.title.length > 10 ? song.title.substring(0, 10) + '...' : song.title),
+                        axisLabel: {
+                            color: '#9ca3af',
+                            rotate: 45
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#374151'
+                            }
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        axisLabel: {
+                            color: '#9ca3af'
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#374151'
+                            }
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                color: '#374151'
+                            }
+                        }
+                    },
+                    series: [{
+                        data: sortedSongs.map(song => song.votes),
+                        type: 'bar',
+                        itemStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: '#00d4ff' },
+                                { offset: 1, color: '#8b5cf6' }
+                            ])
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#ff0080' },
+                                    { offset: 1, color: '#00d4ff' }
+                                ])
+                            }
+                        }
+                    }]
+                };
+                
+                myChart.setOption(option);
+                
+                // Responsive chart
+                window.addEventListener('resize', () => {
+                    myChart.resize();
+                });
+            }
+            
+            renderRecentActivity() {
+                const container = document.getElementById('recentActivity');
+                const activities = [
+                    { user: 'Alex', song: 'Thriller', action: 'voted', time: '2 min ago' },
+                    { user: 'Sarah', song: 'Retro Wave', action: 'voted', time: '3 min ago' },
+                    { user: 'Mike', song: 'Bohemian Rhapsody', action: 'voted', time: '5 min ago' },
+                    { user: 'Emma', song: 'Neon Nights', action: 'voted', time: '7 min ago' },
+                    { user: 'John', song: 'Digital Love', action: 'voted', time: '10 min ago' }
+                ];
+                
+                container.innerHTML = '';
+                
+                activities.forEach((activity, index) => {
+                    const activityItem = document.createElement('div');
+                    activityItem.className = 'flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0';
+                    activityItem.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-xs font-bold">
+                                ${activity.user[0]}
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium">${activity.user} ${activity.action} for</p>
+                                <p class="text-xs text-gray-400">${activity.song}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs text-gray-500 jetbrains">${activity.time}</span>
+                    `;
+                    container.appendChild(activityItem);
+                    
+                    // Animate in
+                    anime({
+                        targets: activityItem,
+                        opacity: [0, 1],
+                        translateX: [20, 0],
+                        duration: 300,
+                        delay: index * 100
+                    });
+                });
+            }
+            
+            updateStats() {
+                const totalVotes = this.songs.reduce((sum, song) => sum + song.votes, 0);
+                const topSong = [...this.songs].sort((a, b) => b.votes - a.votes)[0];
+                
+                document.getElementById('totalVotes').textContent = totalVotes;
+                document.getElementById('nextSongTitle').textContent = topSong.title;
+                document.getElementById('nextSongArtist').textContent = topSong.artist;
+                document.getElementById('queueLength').textContent = this.songs.length;
+            }
+        }
+        
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+        
+        // Initialize queue manager
+        document.addEventListener('DOMContentLoaded', () => {
+            new QueueManager();
+        });
+    </script>
+</body>
+</html>
